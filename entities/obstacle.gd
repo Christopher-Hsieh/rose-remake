@@ -7,6 +7,7 @@ var velocity := Vector2(-220, 0)
 var points: int = 100
 var obstacle_color := Color.WHITE
 var shape_size := 20.0
+var tween_driven := false
 
 
 func setup(type: int, pos: Vector2, vel: Vector2) -> void:
@@ -23,7 +24,8 @@ func setup(type: int, pos: Vector2, vel: Vector2) -> void:
 
 
 func _process(delta: float) -> void:
-	position += velocity * delta
+	if not tween_driven:
+		position += velocity * delta
 	if position.x < -60:
 		GameManager.add_score(points)
 		queue_free()

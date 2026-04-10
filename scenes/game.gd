@@ -3,13 +3,10 @@ extends Node2D
 var level_data: LevelData
 var elapsed_time: float = 0.0
 var is_playing: bool = false
-var beat_detector: BeatDetector
-var music_bus_idx: int = -1
-var bpms: float = 0.331
-var jump_cooldown: float = 0.0
-
-var streams: Dictionary = {}
-var stream_config: Dictionary = {}
+var spawn_event_index: int = 0
+var active_spawners: Array = []
+var bpm_timer: float = 0.0
+var pulse_active: bool = false
 
 @onready var audio_player: AudioStreamPlayer = $AudioStreamPlayer
 @onready var score_label: Label = $HUD/ScoreLabel
@@ -29,71 +26,16 @@ func _ready() -> void:
 			push_error("No level data available")
 			return
 
-	bpms = 60.0 / level_data.bpm
-
-	# Stream durations calibrated against the original Rose level:
-	#
-	#   Original Rose behavior          | Stream equivalent
-	#   --------------------------------|----------------------------------
-	#   Triangles in bursts of 3-8s     | bass stream: 4s, refreshed by kicks
-	#   Squares for 62s straight        | mid stream: 12s, refreshed by snare
-	#   Blues for ~10s in waves          | high_mid stream: 6s
-	#   Yellows for ~15s at the drop    | high stream: 6s
-	#
-	# The long mid-stream duration means that as long as the beat keeps going
-	# (snare every ~360ms), the stream never expires — matching the original's
-	# 173-square continuous run. During a breakdown the stream dies after 12s,
-	# then re-activates when drums return.
-	stream_config = {
-		"bass": {
-			"type_enum": 0, "type_name": "triangle",
-			"interval": bpms, "duration": 4.0, "unlock": 0.0,
-		},
-		"mid": {
-			"type_enum": 1, "type_name": "square",
-			"interval": 0.36, "duration": 12.0, "unlock": 0.0,
-		},
-		"high_mid": {
-			"type_enum": 2, "type_name": "blue",
-			"interval": 0.7, "duration": 6.0, "unlock": 0.15,
-		},
-		"high": {
-			"type_enum": 3, "type_name": "yellow",
-			"interval": bpms, "duration": 6.0, "unlock": 0.35,
-		},
-	}
-	for band_name in stream_config:
-		streams[band_name] = {"active": false, "remaining": 0.0, "cooldown": 0.0}
-
 	GameManager.current_score = 0
-	_setup_audio_bus()
 
 	if ResourceLoader.exists(level_data.audio_path):
 		var audio = load(level_data.audio_path)
 		audio_player.stream = audio
 		audio_player.volume_db = linear_to_db(0.14)
-		audio_player.bus = "Music"
 		audio_player.play()
 
 	player_node.area_entered.connect(_on_player_hit)
 	is_playing = true
-
-
-func _setup_audio_bus() -> void:
-	music_bus_idx = AudioServer.get_bus_index("Music")
-	if music_bus_idx == -1:
-		AudioServer.add_bus()
-		music_bus_idx = AudioServer.bus_count - 1
-		AudioServer.set_bus_name(music_bus_idx, "Music")
-		AudioServer.set_bus_send(music_bus_idx, "Master")
-
-		var analyzer := AudioEffectSpectrumAnalyzer.new()
-		analyzer.buffer_length = 0.1
-		analyzer.fft_size = AudioEffectSpectrumAnalyzer.FFT_SIZE_2048
-		AudioServer.add_bus_effect(music_bus_idx, analyzer)
-
-	var spectrum = AudioServer.get_bus_effect_instance(music_bus_idx, 0)
-	beat_detector = BeatDetector.new(spectrum)
 
 
 func _process(delta: float) -> void:
@@ -101,107 +43,96 @@ func _process(delta: float) -> void:
 		return
 
 	elapsed_time += delta
-	jump_cooldown = maxf(jump_cooldown - delta, 0.0)
 	score_label.text = "Score: " + str(GameManager.current_score)
 
-	var progress := 0.0
-	if level_data and level_data.duration > 0:
-		progress = clampf(elapsed_time / level_data.duration, 0.0, 1.0)
-
-	_process_beats(delta, progress)
-	_process_streams(delta, progress)
-	_process_energy_pulse()
+	_process_spawn_events()
+	_process_active_spawners(delta)
+	if pulse_active:
+		_process_bpm_pulse(delta)
 
 	if level_data and elapsed_time >= level_data.duration:
 		_song_finished()
 
 
-func _process_beats(delta: float, progress: float) -> void:
-	if beat_detector == null:
+# --- Spawn event scheduling ---
+
+func _process_spawn_events() -> void:
+	if level_data == null:
+		return
+	while spawn_event_index < level_data.spawn_events.size():
+		var ev: Dictionary = level_data.spawn_events[spawn_event_index]
+		if elapsed_time >= ev["time"]:
+			_start_spawner(ev)
+			spawn_event_index += 1
+		else:
+			break
+
+
+func _start_spawner(event: Dictionary) -> void:
+	var etype: String = event.get("type", "triangle")
+
+	if etype == "pulse":
+		pulse_active = true
 		return
 
-	var beats := beat_detector.detect_beats(delta)
-
-	for band_name in beats:
-		if not stream_config.has(band_name):
-			continue
-		var config: Dictionary = stream_config[band_name]
-		if progress < config["unlock"]:
-			continue
-
-		var stream: Dictionary = streams[band_name]
-		stream["active"] = true
-		stream["remaining"] = config["duration"]
-
-		# Triangle group-jump on every bass beat (except during finale spin)
-		if band_name == "bass" and progress < 0.87 and jump_cooldown <= 0:
-			_apply_triangle_jump()
-			jump_cooldown = bpms
+	active_spawners.append({
+		"type": etype,
+		"remaining": event.get("count", 1),
+		"interval": event.get("interval", 0.5),
+		"cooldown": 0.0,
+		"speed_min": event.get("speed_min", -220.0),
+		"speed_max": event.get("speed_max", event.get("speed_min", -220.0)),
+	})
 
 
-func _process_streams(delta: float, progress: float) -> void:
-	for band_name in streams:
-		var stream: Dictionary = streams[band_name]
-		if not stream["active"]:
-			continue
+func _process_active_spawners(delta: float) -> void:
+	var finished: Array = []
+	for i in range(active_spawners.size()):
+		var s: Dictionary = active_spawners[i]
+		s["cooldown"] -= delta
+		while s["cooldown"] <= 0 and s["remaining"] > 0:
+			_do_spawn(s)
+			s["remaining"] -= 1
+			s["cooldown"] += s["interval"]
+		if s["remaining"] <= 0:
+			finished.append(i)
 
-		stream["remaining"] -= delta
-		if stream["remaining"] <= 0:
-			stream["active"] = false
-			continue
-
-		stream["cooldown"] -= delta
-		if stream["cooldown"] <= 0:
-			var config: Dictionary = stream_config[band_name]
-
-			var interval: float = config["interval"]
-			# Finale: machine-gun spinning triangles (like the original's 150ms burst)
-			if band_name == "bass" and progress >= 0.87:
-				interval = 0.15
-
-			_spawn_for_stream(config, progress)
-			stream["cooldown"] = interval
+	for i in range(finished.size() - 1, -1, -1):
+		active_spawners.remove_at(finished[i])
 
 
-func _spawn_for_stream(config: Dictionary, progress: float) -> void:
+# --- Spawning by type ---
+
+func _do_spawn(spawner: Dictionary) -> void:
 	var screen_size := get_viewport_rect().size
-	var spawn_x := screen_size.x + 100
-	var type_enum: int = config["type_enum"]
-	var type_name: String = config["type_name"]
 
-	var speed: float
-	var tween_type: String
-
-	match type_name:
+	match spawner["type"]:
 		"triangle":
-			speed = -220.0
-			tween_type = "none"
-			if progress >= 0.87:
-				speed = -600.0
-				tween_type = "spin"
+			_spawn_triangle(spawner, screen_size)
+		"triangle_spin":
+			_spawn_spinning_triangle(spawner, screen_size)
+		"triangle_jump":
+			_apply_triangle_jump()
 		"square":
-			speed = randf_range(-475.0, -220.0)
-			tween_type = "none"
+			_spawn_square(spawner, screen_size)
 		"blue":
-			speed = randf_range(-400.0, -200.0)
-			tween_type = "diagonal"
+			_spawn_blue(spawner, screen_size)
 		"yellow":
-			speed = randf_range(-800.0, -450.0)
-			tween_type = "ease_to"
-		_:
-			speed = -220.0
-			tween_type = "none"
+			_spawn_yellow(spawner, screen_size)
 
-	if type_name == "blue":
-		for band_idx in range(4):
-			var band_h := screen_size.y / 4.0
-			var y := band_h * band_idx + randf_range(20, band_h - 20)
-			var obs := _make_obstacle(type_enum, Vector2(spawn_x, y), Vector2(speed, 0))
-			_apply_tween(obs, tween_type)
-	else:
-		var y := randf_range(screen_size.y * 0.1, screen_size.y * 0.9)
-		var obs := _make_obstacle(type_enum, Vector2(spawn_x, y), Vector2(speed, 0))
-		_apply_tween(obs, tween_type)
+
+func _spawn_triangle(spawner: Dictionary, screen_size: Vector2) -> void:
+	var spawn_x := screen_size.x + 100
+	var y := randf_range(screen_size.y * 0.1, screen_size.y * 0.9)
+	_make_obstacle(0, Vector2(spawn_x, y), Vector2(-220, 0))
+
+
+func _spawn_spinning_triangle(spawner: Dictionary, screen_size: Vector2) -> void:
+	var spawn_x := screen_size.x + 100
+	var y := randf_range(screen_size.y * 0.1, screen_size.y * 0.9)
+	var obs := _make_obstacle(0, Vector2(spawn_x, y), Vector2(-600, 0))
+	var t := create_tween()
+	t.tween_property(obs, "rotation_degrees", obs.rotation_degrees - 1440, 2.5)
 
 
 func _apply_triangle_jump() -> void:
@@ -214,14 +145,71 @@ func _apply_triangle_jump() -> void:
 				child.rotation_degrees - 120, 0.3)
 
 
-func _process_energy_pulse() -> void:
-	if beat_detector and beat_detector.should_pulse():
-		for child in obstacles_node.get_children():
-			if is_instance_valid(child):
-				var t := create_tween()
-				t.tween_property(child, "scale", Vector2(1.15, 1.15), 0.06)
-				t.tween_property(child, "scale", Vector2(1.0, 1.0), 0.06)
+func _spawn_square(spawner: Dictionary, screen_size: Vector2) -> void:
+	var spawn_x := screen_size.x + 100
+	var y := randf_range(0, screen_size.y)
+	var speed := randf_range(spawner["speed_min"], spawner["speed_max"])
+	var obs := _make_obstacle(1, Vector2(spawn_x, y), Vector2(speed, 0))
+	obs.rotation_degrees = randf_range(-26, 26)
 
+
+func _spawn_blue(spawner: Dictionary, screen_size: Vector2) -> void:
+	var spawn_x := screen_size.x + 100
+	var speed := randf_range(spawner["speed_min"], spawner["speed_max"])
+	var blues: Array = []
+
+	for band in range(4):
+		var band_h := screen_size.y / 4.0
+		var y := band_h * band + randf_range(0, band_h)
+		var obs := _make_obstacle(2, Vector2(spawn_x, y), Vector2.ZERO)
+		obs.tween_driven = true
+		obs.rotation_degrees = randf_range(-26, 26)
+		blues.append(obs)
+
+	for obs in blues:
+		var target_y: float = clampf(obs.position.y + randf_range(-300.0, 300.0), 20, screen_size.y - 20)
+		var t := create_tween()
+		t.tween_property(obs, "position:x", -100.0, 2.5) \
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+		t.parallel().tween_property(obs, "position:y", target_y, 2.5) \
+			.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+
+
+func _spawn_yellow(spawner: Dictionary, screen_size: Vector2) -> void:
+	var spawn_x := screen_size.x + 100
+	var y := randf_range(20, screen_size.y * 14.0 / 15.0)
+	var obs := _make_obstacle(3, Vector2(spawn_x, y), Vector2.ZERO)
+	obs.tween_driven = true
+	obs.rotation_degrees = randf_range(-10, 10)
+
+	var target_y := randf_range(20, screen_size.y * 14.0 / 15.0)
+	var dur := randf_range(1.4, 2.25)
+	var t := create_tween()
+	t.tween_property(obs, "position:x", -150.0, dur) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	t.parallel().tween_property(obs, "position:y", target_y, dur) \
+		.set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+
+
+# --- BPM pulse visual ---
+
+func _process_bpm_pulse(delta: float) -> void:
+	if level_data == null or level_data.bpm <= 0:
+		return
+	var beat_interval := 60.0 / level_data.bpm
+	bpm_timer += delta
+	if bpm_timer >= beat_interval:
+		bpm_timer -= beat_interval
+		for child in obstacles_node.get_children():
+			if is_instance_valid(child) and child.obstacle_type != 0:
+				var t := create_tween()
+				t.tween_property(child, "scale", Vector2(1.2, 1.2), 0.04) \
+					.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+				t.tween_property(child, "scale", Vector2(1.0, 1.0), 0.04) \
+					.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
+
+
+# --- Obstacle factory ---
 
 func _make_obstacle(type: int, pos: Vector2, vel: Vector2) -> Area2D:
 	var obs: Area2D = ObstacleScene.instantiate()
@@ -230,27 +218,7 @@ func _make_obstacle(type: int, pos: Vector2, vel: Vector2) -> Area2D:
 	return obs
 
 
-func _apply_tween(obs: Node2D, tween_type: String) -> void:
-	var screen_size := get_viewport_rect().size
-	match tween_type:
-		"jump":
-			var t := create_tween()
-			t.tween_property(obs, "position:x", obs.position.x - 120, 0.25) \
-				.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_BACK)
-		"spin":
-			var t := create_tween().set_loops()
-			t.tween_property(obs, "rotation", TAU, 0.6).as_relative()
-		"diagonal":
-			var target_y := randf_range(80, screen_size.y - 80)
-			var t := create_tween()
-			t.tween_property(obs, "position:y", target_y, 1.2) \
-				.set_ease(Tween.EASE_IN_OUT).set_trans(Tween.TRANS_SINE)
-		"ease_to":
-			var target_y := randf_range(80, screen_size.y - 80)
-			var t := create_tween()
-			t.tween_property(obs, "position:y", target_y, 0.8) \
-				.set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_QUAD)
-
+# --- Game state ---
 
 func _on_player_hit(_area: Area2D) -> void:
 	if is_playing:
@@ -263,7 +231,6 @@ func _game_over() -> void:
 	player_node.release_mouse()
 	GameManager.song_completed = false
 	GameManager.save_high_score()
-	_cleanup_audio_bus()
 	get_tree().change_scene_to_file("res://scenes/game_over.tscn")
 
 
@@ -273,15 +240,7 @@ func _song_finished() -> void:
 	player_node.release_mouse()
 	GameManager.song_completed = true
 	GameManager.save_high_score()
-	_cleanup_audio_bus()
 	get_tree().change_scene_to_file("res://scenes/game_over.tscn")
-
-
-func _cleanup_audio_bus() -> void:
-	var idx := AudioServer.get_bus_index("Music")
-	if idx > 0:
-		AudioServer.remove_bus(idx)
-	music_bus_idx = -1
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -289,5 +248,4 @@ func _unhandled_input(event: InputEvent) -> void:
 		is_playing = false
 		audio_player.stop()
 		player_node.release_mouse()
-		_cleanup_audio_bus()
 		get_tree().change_scene_to_file("res://scenes/level_select.tscn")
