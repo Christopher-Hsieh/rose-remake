@@ -1,6 +1,7 @@
 import { MainScene } from './scenes/main-scene';
 import { GAME_HEIGHT, GAME_WIDTH } from './utils/constants';
 import { Preloader } from './scenes/preloader';
+import { LevelSelect } from './scenes/level-select';
 import { GameOver } from './scenes/gameover-scene';
 
 const GameConfig: Phaser.Types.Core.GameConfig = {
@@ -13,7 +14,7 @@ const GameConfig: Phaser.Types.Core.GameConfig = {
   // `as as Phaser.Types.Scenes.SettingsConfig[]` is required until https://github.com/photonstorm/phaser/pull/6235
   // scene: [menu()] as Phaser.Types.Scenes.SettingsConfig[],
   scene: [
-    Preloader, MainScene, GameOver
+    Preloader, LevelSelect, MainScene, GameOver
   ],
   input: {
     keyboard: true,

@@ -8,6 +8,7 @@ import orange_image from '../assets/orange.png';
 import rose_song_mp3 from '../assets/rose.mp3';
 import parago from '../assets/parago.mp3';
 import rose_song_ogg from '../assets/rose.ogg';
+import miku_mp3 from '../assets/Miku.mp3';
 import virtual_rave from '../assets/fonts/VirtualRave.ttf';
 import vermin_verile from '../assets/fonts/VerminVerile.ttf';
 import glitch from '../assets/fonts/glitch.ttf';
@@ -29,6 +30,7 @@ export class Preloader extends Phaser.Scene {
         this.load.image('yellow', yellow_image);
         this.load.image('orange', orange_image);
         this.load.audio('rose', [ rose_song_ogg, rose_song_mp3]);
+        this.load.audio('miku', [ miku_mp3 ]);
         this.load.audio('parago', [ parago ]);
       }
 
@@ -39,54 +41,35 @@ export class Preloader extends Phaser.Scene {
         this.graphics = this.add.graphics();
         this.graphics.lineStyle(2.5, 0x5F616E, 1);
 
-        
-        let tapCount = 0;
         this.keys = this.input.keyboard.addKeys("R");
-        // if (typeof screen.orientation !== 'undefined')  {
-          
-        //   const playBtn = this.add.text(175, 150, " Tap here for fullscreen \n\n\t\t\t  Then Tap again to Play ", { color: '#BDBEC7', fontFamily: 'VerminVerile', fontSize: "26px"})
-        //                           .setInteractive()
-        //                           .on('pointerdown', () => this.updateOnTap(++tapCount));
-        //   this.graphics.strokeRectShape(playBtn.getBounds());
-        // } else {
-              this.add.text((GAME_WIDTH/2)-100, GAME_HEIGHT-(GAME_HEIGHT-150), "~ Click or Tap To Play ~", { color: '#BDBEC7', fontFamily: 'VerminVerile', fontSize: "28px" });
-              // this.add.text(255, 210, "Controls: Mouse / WASD", { color: '#BDBEC7', fontFamily: 'VerminVerile', fontSize: "14px" });
+
+        this.add.text((GAME_WIDTH/2)-100, GAME_HEIGHT-(GAME_HEIGHT-150), "~ Click or Tap to Continue ~", { color: '#BDBEC7', fontFamily: 'VerminVerile', fontSize: "28px" });
             
-            this.input.once('pointerdown', function () {
-              // On mobile, grab fullscreen on the same gesture that starts the game
-              if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-                const el = document.documentElement as any;
-                if (el.requestFullscreen) {
-                  el.requestFullscreen().catch(() => {});
-                } else if (el.webkitRequestFullscreen) {
-                  el.webkitRequestFullscreen();
-                }
-              }
-              this.parago.stop();
-              this.scene.start(SCENES.MAIN_SCENE);
-          }, this);
-        // }
-          // Setup and Play song
+        this.input.once('pointerdown', function () {
+          // On mobile, grab fullscreen on the same gesture that starts the game
+          if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+            const el = document.documentElement as any;
+            if (el.requestFullscreen) {
+              el.requestFullscreen().catch(() => {});
+            } else if (el.webkitRequestFullscreen) {
+              el.webkitRequestFullscreen();
+            }
+          }
+          this.parago.stop();
+          this.scene.start(SCENES.LEVEL_SELECT);
+        }, this);
+
+        // Setup and Play song
         this.parago = this.sound.add("parago", {
           volume: 0.065,
         }) as Phaser.Sound.HTML5AudioSound;
         this.parago.play();
       }
 
-      updateOnTap(tapCount) {
-        if (tapCount <= 2) {
-          const elem = document.getElementById("app");
-          elem.requestFullscreen();
-        } else {
-          this.parago.stop();
-          this.scene.start(SCENES.MAIN_SCENE);
-        }
-      }
-
       update(time: number, delta: number): void {
         if (this.keys.R.isDown) {
           this.parago.stop();
-          this.scene.start(SCENES.MAIN_SCENE);
+          this.scene.start(SCENES.LEVEL_SELECT);
         }
     }
 
