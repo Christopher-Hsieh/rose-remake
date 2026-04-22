@@ -53,6 +53,15 @@ export class Preloader extends Phaser.Scene {
               // this.add.text(255, 210, "Controls: Mouse / WASD", { color: '#BDBEC7', fontFamily: 'VerminVerile', fontSize: "14px" });
             
             this.input.once('pointerdown', function () {
+              // On mobile, grab fullscreen on the same gesture that starts the game
+              if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+                const el = document.documentElement as any;
+                if (el.requestFullscreen) {
+                  el.requestFullscreen().catch(() => {});
+                } else if (el.webkitRequestFullscreen) {
+                  el.webkitRequestFullscreen();
+                }
+              }
               this.parago.stop();
               this.scene.start(SCENES.MAIN_SCENE);
           }, this);
