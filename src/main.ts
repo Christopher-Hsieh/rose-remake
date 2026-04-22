@@ -40,7 +40,7 @@ const GameConfig: Phaser.Types.Core.GameConfig = {
     // `fullscreenTarget` must be defined for phones to not have
     // a small margin during fullscreen.
     fullscreenTarget: 'body',
-    expandParent: false,
+    expandParent: true,
 
   },
 };

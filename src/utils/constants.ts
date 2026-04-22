@@ -1,8 +1,10 @@
 export const BPM = 181;
 export const BPS = BPM / 60;
 export const BPMS = 1000 / BPS; 
-export const GAME_WIDTH = window?.screen?.height ?? 1200;
-export const GAME_HEIGHT = window?.screen?.width ?? 460;
+// iPhone 13/14 landscape logical resolution — fixed aspect ratio (≈2.16:1)
+// Phaser's FIT scale mode will scale this up/down to fill any viewport.
+export const GAME_WIDTH = 844;
+export const GAME_HEIGHT = 390;
 export const SPAWN_ZONE = GAME_WIDTH + 100;
 export const SCENES = {
     MAIN_SCENE: 'MainScene',
