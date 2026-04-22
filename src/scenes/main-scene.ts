@@ -152,11 +152,11 @@ export class MainScene extends Phaser.Scene {
       this.yel_group,
     ]);
 
-    // Setup and play level song
+    // Setup and play level song (Miku starts 10s into the file)
     this.song = this.sound.add(this.level, {
       volume: 0.14,
     }) as Phaser.Sound.HTML5AudioSound;
-    this.song.play();
+    this.song.play(this.level === LEVELS.MIKU ? { seek: 10 } : {});
   }
 
   // ─── Game lifecycle ─────────────────────────────────────────────────────────

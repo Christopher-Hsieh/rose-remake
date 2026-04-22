@@ -1,77 +1,125 @@
 import { MIKU_BPMS } from "../utils/constants";
-
 import { SpawnScene } from "./types";
 
 /**
- * Spawn sequence for Miku — Anamanaguchi (BPM 128, MIKU_BPMS ≈ 469ms).
- * This is a placeholder choreography — tune the timings here to match the track.
- * Loop point: 90s → scene.restart
+ * Spawn sequence for Miku — Anamanaguchi (BPM 128 ≈ 469ms/beat).
+ * Audio starts at the 10s mark of the file (seek: 10 in main-scene).
+ * All onset timestamps below are (original audio time − 10s).
+ *
+ * Sections:
+ *   0  –  5s   Intro      — steady blue squares, no obstacles yet
+ *   5s          →          pulse starts, BPM-locked to 128
+ *   5  – 20s   Chorus 1   — wall drops on accent pairs, triangles on beats
+ *   20 – 35s   Drop       — spinning triangles, yellow, walls on every hit
+ *   35 – 49s   Outro      — sparse wind-down
+ *   49.5s       →          loop
  */
 export function setupMikuSequence(scene: SpawnScene) {
-  // ── Intro: triangles (0 – 5s) ─────────────────────────────────────────────
+  const at = (ms: number, fn: () => void) =>
+    scene.time.addEvent({ delay: ms, callback: fn });
+
+  // ── INTRO: Blue squares for 5 seconds ────────────────────────────────────
   scene.time.addEvent({
-    delay: MIKU_BPMS, startAt: MIKU_BPMS / 2, repeat: 8,
-    callback: () => scene.addTriangle(),
-  });
-  scene.time.addEvent({
-    delay: MIKU_BPMS * 2, startAt: MIKU_BPMS, repeat: 4,
-    callback: () => scene.addTriangleJump(),
+    delay: MIKU_BPMS, repeat: 10,
+    callback: () => scene.addSquare(),
   });
 
-  // ── Squares + pulse kick in at 5s ─────────────────────────────────────────
-  scene.time.addEvent({
-    delay: 5000,
-    callback: () => {
-      scene.time.addEvent({ delay: MIKU_BPMS, repeat: 999, callback: () => scene.addSquare() });
-    },
-  });
-  scene.time.addEvent({
-    delay: 5000,
-    callback: () => scene.addPulseTween(999, MIKU_BPMS),
+  // ── 5s: Pulse starts + continuous square stream carries on ────────────────
+  at(5000, () => {
+    scene.addPulseTween(999, MIKU_BPMS);
+    scene.time.addEvent({ delay: MIKU_BPMS, repeat: 94, callback: () => scene.addSquare() });
   });
 
-  // ── Triangles return at 15s ───────────────────────────────────────────────
-  scene.time.addEvent({
-    delay: 15000,
-    callback: () => {
-      scene.time.addEvent({ delay: MIKU_BPMS, repeat: 16, callback: () => scene.addTriangle() });
-      scene.time.addEvent({ delay: MIKU_BPMS, repeat: 16, callback: () => scene.addTriangleJump() });
-    },
-  });
+  // ── CHORUS 1: Walls + triangles on detected beats (5.44 – 19.95s) ────────
+  // Original audio 15.44s → gameplay 5.44s
+  at(5440,  () => scene.addBlue());
+  at(5910,  () => scene.addBlue());   // 1-beat pair
 
-  // ── Blue wall at 25s ──────────────────────────────────────────────────────
-  scene.time.addEvent({
-    delay: 25000,
-    callback: () => {
-      scene.time.addEvent({ delay: MIKU_BPMS * 2, repeat: 12, callback: () => scene.addBlue() });
-    },
-  });
+  at(6860,  () => scene.addTriangle());
+  at(7780,  () => scene.addBlue());
 
-  // ── Yellow starts at 35s ──────────────────────────────────────────────────
-  scene.time.addEvent({
-    delay: 35000,
-    callback: () => {
-      scene.time.addEvent({ delay: MIKU_BPMS, repeat: 30, callback: () => scene.addYellow() });
-    },
-  });
+  // Big single hit after 1.4s gap → wall + triangle together
+  at(9190,  () => { scene.addBlue(); scene.addTriangle(); });
 
-  // ── More triangles at 50s ─────────────────────────────────────────────────
-  scene.time.addEvent({
-    delay: 50000,
-    callback: () => {
-      scene.time.addEvent({ delay: MIKU_BPMS, repeat: 20, callback: () => scene.addTriangle() });
-      scene.time.addEvent({ delay: MIKU_BPMS, repeat: 20, callback: () => scene.addTriangleJump() });
-    },
-  });
+  at(10590, () => scene.addTriangle());
+  at(11530, () => scene.addTriangle());
+  at(12470, () => scene.addBlue());
 
-  // ── Spinning triangle finale at 70s ───────────────────────────────────────
-  scene.time.addEvent({
-    delay: 70000,
-    callback: () => {
-      scene.time.addEvent({ delay: 200, repeat: 30, callback: () => scene.addSpinningTriangle() });
-    },
-  });
+  // Triplet (2-beat, 1-beat, 1-beat)
+  at(13410, () => scene.addTriangle());
+  at(13880, () => scene.addTriangleJump());
+  at(14340, () => scene.addBlue());
 
-  // ── Loop ──────────────────────────────────────────────────────────────────
-  scene.time.addEvent({ delay: 90000, callback: () => scene.loopGame() });
+  at(15280, () => scene.addTriangle());
+  at(16220, () => { scene.addBlue(); scene.addTriangle(); });
+  at(17160, () => scene.addTriangle());
+  at(18100, () => scene.addBlue());
+
+  // Triplet building into the drop
+  at(19030, () => scene.addTriangle());
+  at(19510, () => scene.addTriangleJump());
+  at(19950, () => { scene.addBlue(); scene.addTriangleJump(); });
+
+  // ── DROP: Dense chaos (20 – 35s) ─────────────────────────────────────────
+  at(20900, () => { scene.addSpinningTriangle(); scene.addBlue(); });
+  at(21850, () => scene.addSpinningTriangle());
+
+  // 1-beat pair
+  at(22320, () => scene.addBlue());
+  at(22770, () => scene.addSpinningTriangle());
+
+  at(23710, () => { scene.addSpinningTriangle(); scene.addBlue(); });
+  at(24640, () => scene.addYellow());
+
+  // Near-double (0.23s) → two fast hits
+  at(25130, () => scene.addSpinningTriangle());
+  at(25360, () => { scene.addSpinningTriangle(); scene.addBlue(); });
+
+  at(26060, () => scene.addYellow());
+  at(26520, () => { scene.addBlue(); scene.addSpinningTriangle(); });
+  at(27460, () => scene.addSpinningTriangle());
+  at(28390, () => { scene.addBlue(); scene.addYellow(); });
+  at(29350, () => scene.addSpinningTriangle());
+
+  // 1-beat pair
+  at(29820, () => scene.addBlue());
+  at(30280, () => { scene.addSpinningTriangle(); scene.addYellow(); });
+
+  at(31210, () => scene.addBlue());
+
+  // 1-beat pair
+  at(31690, () => scene.addSpinningTriangle());
+  at(32140, () => { scene.addBlue(); scene.addYellow(); });
+
+  at(33110, () => scene.addSpinningTriangle());
+
+  // 1-beat pair
+  at(33560, () => scene.addBlue());
+  at(34010, () => { scene.addYellow(); scene.addSpinningTriangle(); });
+
+  // Half-beat burst (0.23s apart) → maximum chaos
+  at(34240, () => { scene.addBlue(); scene.addSpinningTriangle(); });
+  at(34480, () => { scene.addSpinningTriangle(); scene.addBlue(); });
+
+  // Final drop peak — everything at once
+  at(35430, () => { scene.addBlue(); scene.addYellow(); scene.addSpinningTriangle(); });
+
+  // ── OUTRO: Wind down (35 – 49s) ──────────────────────────────────────────
+  at(36370, () => scene.addSpinningTriangle());
+  at(37310, () => scene.addBlue());
+  at(38250, () => scene.addSpinningTriangle());
+  at(39180, () => { scene.addBlue(); scene.addTriangle(); });
+
+  // 1-beat pair
+  at(41060, () => scene.addSpinningTriangle());
+  at(41540, () => scene.addBlue());
+
+  // Big gaps — isolated, dramatic final hits
+  at(44350, () => { scene.addSpinningTriangle(); scene.addYellow(); });
+  at(47140, () => scene.addBlue());
+  at(48090, () => scene.addSpinningTriangle());
+  at(49030, () => scene.addBlue());
+
+  // ── Loop ─────────────────────────────────────────────────────────────────
+  scene.time.addEvent({ delay: 49500, callback: () => scene.loopGame() });
 }
