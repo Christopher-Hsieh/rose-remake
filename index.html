@@ -26,6 +26,15 @@
       height: 100%;
     }
   </style>
+  <script>
+    // Capture the install prompt before the browser hides it.
+    // Stored on window so Phaser scenes can access it.
+    window._pwaPrompt = null;
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window._pwaPrompt = e;
+    });
+  </script>
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-Q3MVKWM856"></script>
   <script>
