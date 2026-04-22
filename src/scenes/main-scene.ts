@@ -5,12 +5,13 @@ import {
   GAME_WIDTH,
   LEVELS,
   Level,
-  MIKU_BPMS,
   SCENES,
   SHAPES,
   SPAWN_ZONE,
 } from "../utils/constants";
 import { handleTouchControl, setupMouseControl } from "../utils/input";
+import { setupRoseSequence } from "../levels/rose";
+import { setupMikuSequence } from "../levels/miku";
 
 export class MainScene extends Phaser.Scene {
   keys: any;
@@ -135,9 +136,9 @@ export class MainScene extends Phaser.Scene {
 
     // Spawn sequence based on selected level
     if (this.level === LEVELS.MIKU) {
-      this.setupMikuSequence();
+      setupMikuSequence(this);
     } else {
-      this.setupRoseSequence();
+      setupRoseSequence(this);
     }
 
     // Setup Colliders
@@ -153,161 +154,6 @@ export class MainScene extends Phaser.Scene {
       volume: 0.14,
     }) as Phaser.Sound.HTML5AudioSound;
     this.song.play();
-  }
-
-  // ─── Rose spawn sequence (original) ────────────────────────────────────────
-
-  setupRoseSequence() {
-    this.time.addEvent({
-      delay: 6800,
-      callbackScope: this,
-      callback: function () { this.addPulseTween(111); },
-    });
-    this.time.addEvent({
-      delay: 46000,
-      callbackScope: this,
-      callback: function () { this.addPulseTween(-1); },
-    });
-    this.time.addEvent({
-      delay: 600, startAt: 550, repeat: 10,
-      callbackScope: this, callback: this.addTriangle,
-    });
-    this.time.addEvent({
-      delay: 620, startAt: 450, repeat: 11,
-      callbackScope: this, callback: this.addTriangleJump,
-    });
-    this.time.addEvent({
-      delay: 4000,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: 360, repeat: 172, callbackScope: this, callback: this.addSquare });
-      },
-    });
-    this.time.addEvent({
-      delay: 18400,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: BPMS, repeat: 23, callbackScope: this, callback: this.addTriangle });
-        this.time.addEvent({ delay: BPMS, repeat: 26, callbackScope: this, callback: this.addTriangleJump });
-      },
-    });
-    this.time.addEvent({
-      delay: 28000,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: 700, startAt: 600, repeat: 14, callbackScope: this, callback: this.addBlue });
-      },
-    });
-    this.time.addEvent({
-      delay: 38500,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: BPMS, repeat: 12, callbackScope: this, callback: this.addTriangle });
-        this.time.addEvent({ delay: BPMS, repeat: 18, callbackScope: this, callback: this.addTriangleJump });
-      },
-    });
-    this.time.addEvent({
-      delay: 49500,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: BPMS, repeat: 12, callbackScope: this, callback: this.addTriangle });
-        this.time.addEvent({ delay: BPMS, repeat: 20, callbackScope: this, callback: this.addTriangleJump });
-      },
-    });
-    this.time.addEvent({
-      delay: 45800,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: BPMS, repeat: 45, callbackScope: this, callback: this.addYellow });
-      },
-    });
-    this.time.addEvent({
-      delay: 66000,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: 150, repeat: 40, callbackScope: this, callback: this.addSpinningTriangle });
-      },
-    });
-    this.time.addEvent({ delay: 75500, callbackScope: this, callback: this.loopGame });
-  }
-
-  // ─── Miku placeholder spawn sequence (128 BPM) ─────────────────────────────
-
-  setupMikuSequence() {
-    // Intro: triangles
-    this.time.addEvent({
-      delay: MIKU_BPMS, startAt: MIKU_BPMS / 2, repeat: 8,
-      callbackScope: this, callback: this.addTriangle,
-    });
-    this.time.addEvent({
-      delay: MIKU_BPMS * 2, startAt: MIKU_BPMS, repeat: 4,
-      callbackScope: this, callback: this.addTriangleJump,
-    });
-
-    // Squares kick in at 5s
-    this.time.addEvent({
-      delay: 5000,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: MIKU_BPMS, repeat: 999, callbackScope: this, callback: this.addSquare });
-      },
-    });
-
-    // Pulse squares on the beat from 5s
-    this.time.addEvent({
-      delay: 5000,
-      callbackScope: this,
-      callback: function () { this.addPulseTween(999); },
-    });
-
-    // Triangles return at 15s
-    this.time.addEvent({
-      delay: 15000,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: MIKU_BPMS, repeat: 16, callbackScope: this, callback: this.addTriangle });
-        this.time.addEvent({ delay: MIKU_BPMS, repeat: 16, callbackScope: this, callback: this.addTriangleJump });
-      },
-    });
-
-    // Blue wall drops at 25s
-    this.time.addEvent({
-      delay: 25000,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: MIKU_BPMS * 2, repeat: 12, callbackScope: this, callback: this.addBlue });
-      },
-    });
-
-    // Yellow starts at 35s
-    this.time.addEvent({
-      delay: 35000,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: MIKU_BPMS, repeat: 30, callbackScope: this, callback: this.addYellow });
-      },
-    });
-
-    // More triangles at 50s
-    this.time.addEvent({
-      delay: 50000,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: MIKU_BPMS, repeat: 20, callbackScope: this, callback: this.addTriangle });
-        this.time.addEvent({ delay: MIKU_BPMS, repeat: 20, callbackScope: this, callback: this.addTriangleJump });
-      },
-    });
-
-    // Spinning triangle finale at 70s
-    this.time.addEvent({
-      delay: 70000,
-      callbackScope: this,
-      callback: function () {
-        this.time.addEvent({ delay: 200, repeat: 30, callbackScope: this, callback: this.addSpinningTriangle });
-      },
-    });
-
-    this.time.addEvent({ delay: 90000, callbackScope: this, callback: this.loopGame });
   }
 
   // ─── Game lifecycle ─────────────────────────────────────────────────────────
@@ -376,37 +222,24 @@ export class MainScene extends Phaser.Scene {
 
   // ─── Spawn helpers ──────────────────────────────────────────────────────────
 
-  addPulseTween(repeat_count: number) {
-    this.time.addEvent({
-      delay: BPMS, repeat: repeat_count, callbackScope: this,
-      callback: function () {
-        this.tweens.add({
-          targets: this.squares_group.getChildren(),
-          props: { scaleX: 0.475, scaleY: 0.475 },
-          ease: "Sine.easeInOut", duration: 40, yoyo: true,
-        });
-      },
-    });
-    this.time.addEvent({
-      delay: BPMS, repeat: repeat_count, callbackScope: this,
-      callback: function () {
-        this.tweens.add({
-          targets: this.blue_group.getChildren(),
-          props: { scaleX: 0.475, scaleY: 0.475 },
-          ease: "Sine.easeInOut", duration: 40, yoyo: true,
-        });
-      },
-    });
-    this.time.addEvent({
-      delay: BPMS, repeat: repeat_count, callbackScope: this,
-      callback: function () {
-        this.tweens.add({
-          targets: this.yel_group.getChildren(),
-          props: { scaleX: 0.475, scaleY: 0.475 },
-          ease: "Sine.easeInOut", duration: 40, yoyo: true,
-        });
-      },
-    });
+  addPulseTween(repeat_count: number, bpms: number = BPMS) {
+    const targets = [
+      () => this.squares_group.getChildren(),
+      () => this.blue_group.getChildren(),
+      () => this.yel_group.getChildren(),
+    ];
+    for (const getTargets of targets) {
+      this.time.addEvent({
+        delay: bpms, repeat: repeat_count,
+        callback: () => {
+          this.tweens.add({
+            targets: getTargets(),
+            props: { scaleX: 0.475, scaleY: 0.475 },
+            ease: "Sine.easeInOut", duration: 40, yoyo: true,
+          });
+        },
+      });
+    }
   }
 
   addTriangleJump() {
