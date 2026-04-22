@@ -1,0 +1,17 @@
+{
+  "name": "{Rose}",
+  "short_name": "Rose",
+  "description": "A rhythm game",
+  "start_url": "/rose-remake/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1B1C22",
+  "theme_color": "#1B1C22",
+  "icons": [
+    {
+      "src": "/rose-remake/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}
