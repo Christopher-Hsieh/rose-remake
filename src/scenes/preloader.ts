@@ -67,10 +67,17 @@ export class Preloader extends Phaser.Scene {
       started = true;
       if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
         const el = document.documentElement as any;
-        if (el.requestFullscreen) {
-          el.requestFullscreen().catch(() => {});
-        } else if (el.webkitRequestFullscreen) {
-          el.webkitRequestFullscreen();
+        const enterFullscreen = el.requestFullscreen
+          ? el.requestFullscreen.bind(el)
+          : el.webkitRequestFullscreen
+            ? el.webkitRequestFullscreen.bind(el)
+            : null;
+        if (enterFullscreen) {
+          enterFullscreen().then(() => {
+            // Lock to landscape after fullscreen is granted (Android Chrome)
+            const ori = screen.orientation as any;
+            if (ori?.lock) ori.lock('landscape').catch(() => {});
+          }).catch(() => {});
         }
       }
       this.parago.stop();

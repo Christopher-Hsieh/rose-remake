@@ -25,6 +25,43 @@
       width: 100%;
       height: 100%;
     }
+
+    /* Rotate prompt — shown automatically in portrait via media query */
+    #rotate-prompt {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: #1B1C22;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: #BDBEC7;
+      font-family: sans-serif;
+      text-align: center;
+      pointer-events: none;
+    }
+    #rotate-prompt svg {
+      width: 72px;
+      height: 72px;
+      fill: #e8677e;
+      animation: spin-hint 2s ease-in-out infinite;
+    }
+    #rotate-prompt p {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.05em;
+    }
+    @keyframes spin-hint {
+      0%   { transform: rotate(0deg); }
+      40%  { transform: rotate(90deg); }
+      60%  { transform: rotate(90deg); }
+      100% { transform: rotate(90deg); }
+    }
+    @media (orientation: portrait) {
+      #rotate-prompt { display: flex; }
+    }
   </style>
   <script>
     // Capture the install prompt before the browser hides it.
@@ -47,6 +84,13 @@
 </head>
 
 <body>
+  <!-- Shown via CSS media query when device is in portrait orientation -->
+  <div id="rotate-prompt">
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16.48 2.52c3.27 1.55 5.61 4.72 5.97 8.48h1.5C23.44 4.84 19.29.96 14 .08l2.48 2.44zM7.52 21.48C4.25 19.93 1.91 16.76 1.55 13H.05C.56 19.16 4.71 23.04 10 23.92l-2.48-2.44zM1.55 11c.46-4.17 3.31-7.72 7.18-9.23L6.93.29C3.02 2.15.56 6.11.05 11h1.5zm14.93 9.71c-1.53.9-3.28 1.29-5.05 1.22l2.41 2.41c3.97-.5 7.42-2.75 9.36-6.17l-1.3-.75c-1.36 1.94-3.28 3.08-5.42 3.29zM11 1.07L8.59 3.5C10.36 3.4 12.1 3.82 13.62 4.72c2.14.21 4.06 1.35 5.42 3.29l1.3-.75C18.4 3.84 14.97 1.59 11 1.07z"/>
+    </svg>
+    <p>Rotate your device to play</p>
+  </div>
   <div id="app"></div>
   <script type="module" src="/src/main.ts"></script>
   
