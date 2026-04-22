@@ -3,10 +3,10 @@ import {
   BPMS,
   GAME_HEIGHT,
   GAME_WIDTH,
+  LEVEL_SHAPES,
   LEVELS,
   Level,
   SCENES,
-  SHAPES,
   SPAWN_ZONE,
 } from "../utils/constants";
 import { handleTouchControl, setupMouseControl } from "../utils/input";
@@ -98,9 +98,12 @@ export class MainScene extends Phaser.Scene {
     this.keys = this.input.keyboard.addKeys("W,A,S,D");
     setupMouseControl(this.input, this.player);
 
+    // Texture keys for this level's obstacle colors
+    const shapes = LEVEL_SHAPES[this.level];
+
     // Setup physics groups
     this.triangles_group = this.physics.add.group({
-      defaultKey: SHAPES.TRIANGLE,
+      defaultKey: shapes.triangle,
       createCallback: function (triangle: Phaser.Physics.Arcade.Sprite) {
         triangle.setScale(0.4).setSize(50, 50);
         triangle.setVelocityX(-220);
@@ -108,7 +111,7 @@ export class MainScene extends Phaser.Scene {
     });
 
     this.squares_group = this.physics.add.group({
-      defaultKey: SHAPES.SQUARE,
+      defaultKey: shapes.square,
       createCallback: function (square: Phaser.Physics.Arcade.Sprite) {
         square.setScale(0.4).setSize(60, 60);
         square.setAngle(Phaser.Math.Between(-26, 26));
@@ -117,7 +120,7 @@ export class MainScene extends Phaser.Scene {
     });
 
     this.blue_group = this.physics.add.group({
-      defaultKey: SHAPES.BLUE,
+      defaultKey: shapes.wall,
       createCallback: function (square: Phaser.Physics.Arcade.Sprite) {
         square.setScale(0.4).setSize(60, 60);
         square.setAngle(Phaser.Math.Between(-26, 26));
@@ -126,7 +129,7 @@ export class MainScene extends Phaser.Scene {
     });
 
     this.yel_group = this.physics.add.group({
-      defaultKey: SHAPES.YELLOW,
+      defaultKey: shapes.fast,
       createCallback: function (square: Phaser.Physics.Arcade.Sprite) {
         square.setScale(0.4).setSize(60, 60);
         square.setAngle(Phaser.Math.Between(-10, 10));

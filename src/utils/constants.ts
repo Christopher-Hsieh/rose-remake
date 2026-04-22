@@ -27,9 +27,32 @@ export const LEVELS = {
 export type Level = typeof LEVELS[keyof typeof LEVELS];
 
 export const SHAPES = {
-    TRIANGLE: 'triangle',
-    SQUARE: 'square',
-    BLUE: 'blue',
-    YELLOW: 'yellow',
-    ORANGE: 'orange'
-  } as const;
+  TRIANGLE_GREEN:  'triangle-green',
+  SQUARE_RED:      'square-red',
+  SQUARE_BLUE:     'square-blue',
+  SQUARE_MAGENTA:  'square-magenta',
+  CIRCLE_ORANGE:   'circle-orange',
+} as const;
+
+export type ShapeKey = typeof SHAPES[keyof typeof SHAPES];
+
+/** Maps each gameplay role to a texture key, per level. */
+export const LEVEL_SHAPES: Record<Level, {
+  triangle: ShapeKey;
+  square:   ShapeKey;
+  wall:     ShapeKey;
+  fast:     ShapeKey;
+}> = {
+  [LEVELS.ROSE]: {
+    triangle: SHAPES.TRIANGLE_GREEN,
+    square:   SHAPES.SQUARE_RED,
+    wall:     SHAPES.SQUARE_BLUE,
+    fast:     SHAPES.SQUARE_MAGENTA,
+  },
+  [LEVELS.MIKU]: {
+    triangle: SHAPES.TRIANGLE_GREEN,
+    square:   SHAPES.SQUARE_BLUE,
+    wall:     SHAPES.SQUARE_MAGENTA,
+    fast:     SHAPES.SQUARE_RED,
+  },
+};
