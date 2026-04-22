@@ -1,6 +1,0 @@
-res://entities/obstacle.gd
-res://entities/player.gd
-res://scenes/game.gd
-res://scripts/game_manager.gd
-res://scripts/level_data.gd
-res://scripts/beat_detector.gd
